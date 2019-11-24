@@ -46,13 +46,21 @@ main = hspec $ do
       tex (a*dag i + b + c) `shouldBe` "p_{a}h^{i} + p_{b} + p_{c}"
       tex (tai "e" "k") `shouldBe` "t^{e}_{k}*p^{e}h_{k}"
 
+  describe "Dagger function" $ do
+    it "Correctly handles the trivial cases" $ do
+      dag (a * i) `shouldBe` (dag i) * (dag a)
+      dag (a * i * j) `shouldBe` (dag j) * (dag i) * (dag a)
+      dag (a + i * j) `shouldBe` (dag a) + ((dag j) * (dag i))
+
   describe "Build sums and products" $ do
     it "General" $ do
       a*c `shouldBe` Oprod [a, c]
       (a + b)*c `shouldBe` Oprod [a+b, c]
       c*(a + b) `shouldBe` Oprod [c, a+b]
+      c*a + b `shouldBe` Osum [c*a, b]
       (a + b + c + d) `shouldBe` Osum [a,b,c,d]
       (a ** 3) `shouldBe` Oprod [a,a,a]
+      (a + i*j) `shouldBe` Osum [a,i*j]
 
   describe "Expanding operators" $ do
     it "trivial expand" $ do
@@ -63,6 +71,10 @@ main = hspec $ do
       expand ((a*b) + (b*i) + c) `shouldBe` Osum [a*b, b*i, Oprod [c]]
     it "Expands sums (a+b)**2" $ do
       expand ((a + b)**2) `shouldBe` Osum [a**2, a*b, b*a, b**2]
+    it "Expands sums ((a+b)**2)+" $ do
+      (dag . expand)  ((a + b)**2)
+       `shouldBe`
+       Osum [(dag a)**2, (dag b)*(dag a), (dag a)*(dag b), (dag b)**2]
     it "Expands sums (a+b)*c" $ do
       expand ((a + b)*c) `shouldBe` Osum [a*c, b*c]
     it "Expands sums c*(a+b)" $ do
@@ -75,6 +87,10 @@ main = hspec $ do
       expand ((a + b)*i*(c + d)) `shouldBe` Osum [a*i*c,a*i*d,b*i*c,b*i*d]
     it "Expands sums i*(a+b)*(c+d)" $ do
       expand (i*(a + b)*(c + d)) `shouldBe` Osum [i*a*c,i*a*d,i*b*c,i*b*d]
+    it "Expands sums (a+b)*(c+d)*(i+j)" $ do
+      expand ((a + b)*(c + d)*(i+j))
+        `shouldBe`
+        Osum [a*c*i,a*c*j,a*d*i,a*d*j, b*c*i,b*c*j,b*d*i,b*d*j]
 {-
 
   describe "Contraction" $ do

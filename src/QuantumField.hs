@@ -7,6 +7,8 @@ import           Prelude                 hiding ( (*)
 import           Data.List
 import           Data.Monoid
 
+infixl 7 *
+infixl 6 +
 
 type Index = String
 type Field = Double
@@ -38,8 +40,6 @@ data Operator
   | Scaled Scalar Operator
   deriving(Show, Eq)
 
-
-
 class Ring a where
   (*) :: a -> a -> a
   (**) :: a -> Int -> a
@@ -55,7 +55,6 @@ instance Ring Operator where
 
   a ** n | n <= 0    = Oprod []
          | otherwise = a * (a ** (n - 1))
-
 
   b        + FockZero = b
   FockZero + b        = b
@@ -77,8 +76,10 @@ conj ScalarOne      = ScalarOne
 dag :: Operator -> Operator
 dag (Dagger (Particle i)) = Particle i
 dag (Dagger (Hole     a)) = Hole a
-dag (Oprod  a           ) = Oprod (map dag $ reverse a)
-dag (Scaled s o         ) = Scaled s $ dag o
+dag (Dagger (Op       a)) = Op a
+dag (Oprod  a           ) = Oprod $ map dag $ reverse a
+dag (Osum   a           ) = Osum $ map dag a
+dag (Scaled s o         ) = Scaled (conj s) $ dag o
 dag FockOne               = FockOne
 dag FockZero              = FockZero
 dag o                     = Dagger o
@@ -109,17 +110,17 @@ normalize (Scaled a b) = Scaled a (normalize b)
 normalize a            = a
 
 expand :: Operator -> Operator
-expand (Oprod c) = Osum $ map Oprod (expandList c)
-expand (Osum a) = foldl (+) FockZero (map (expand . Oprod . (:[])) a)
+expand (Oprod c   ) = Osum $ map Oprod (expandList c)
+expand (Osum  a   ) = foldl (+) FockZero (map (expand . Oprod . (: [])) a)
 --expand (Osum a) = Osum $ map (expandList . (:[])) a
 expand (Scaled s a) = Osum [Scaled s (expand a)]
-expand c        = Osum [c]
+expand c            = Osum [c]
 
 expandList :: [Operator] -> [[Operator]]
 expandList l@(x : xs) = case x of
-  (Oprod a) -> expandList $ a++xs
-  (Osum a) -> mconcat $ map expandList $ [(:)] <*> a <*> [xs]
-  _ -> map (x :) (expandList xs)
+  (Oprod a) -> expandList $ a ++ xs
+  (Osum  a) -> mconcat $ map expandList $ [(:)] <*> a <*> [xs]
+  _         -> map (x :) (expandList xs)
 expandList [] = [[]]
 
 instance Tex Operator where
