@@ -1,5 +1,6 @@
 import Test.Hspec
 import QuantumField
+import Tex
 import Prelude hiding ((*), (**), (+))
 
 o = Op
