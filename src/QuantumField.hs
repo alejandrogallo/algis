@@ -24,8 +24,8 @@ data Scalar
   | ScalarOne
   | Val Field
   | Conj Field
-  | Sprod Scalar Scalar
-  | Ssum Scalar Scalar
+  | Sprod [Scalar]
+  | Ssum [Scalar]
   deriving (Show, Eq)
 
 data Operator
@@ -40,12 +40,12 @@ data Operator
   | Scaled Scalar Operator
   deriving(Show, Eq)
 
-class Ring a where
+class CStarALgebra a where
   (*) :: a -> a -> a
   (**) :: a -> Int -> a
   (+) :: a -> a -> a
 
-instance Ring Operator where
+instance CStarALgebra Operator where
   FockOne   * a         = a
   a         * FockOne   = a
   (Oprod a) * (Oprod b) = Oprod $ a ++ b
@@ -65,10 +65,10 @@ instance Ring Operator where
 
 conj :: Scalar -> Scalar
 conj (Delta s t   ) = Delta s t
-conj (Val  s      ) = Conj s
-conj (Conj s      ) = Val s
-conj (Sprod s t   ) = Sprod (conj s) (conj t)
-conj (Ssum  s t   ) = Ssum (conj s) (conj t)
+conj (Val   s     ) = Conj s
+conj (Conj  s     ) = Val s
+conj (Sprod t     ) = Sprod $ map conj t
+conj (Ssum  t     ) = Ssum $ map conj t
 conj (Tensor s a i) = Tensor s a i
 conj ScalarZero     = ScalarZero
 conj ScalarOne      = ScalarOne
