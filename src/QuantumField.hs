@@ -96,23 +96,22 @@ isOneBody (Osum q               ) = all isOneBody q
 isOneBody _                       = False
 
 normalize :: Operator -> Operator
---normalize (Oprod (Op b) (Dagger (Op a))) = Scaled ParticleSign o
-  --where o = Oprod (Dagger (Op a)) (Op b)
---normalize (Oprod b (Dagger (Op a))) = Scaled ParticleSign o
-  --where o = Oprod (Dagger (Op a)) (normalize b)
---normalize (Oprod b (Op a)) = Oprod (normalize b) (Op a)
---normalize (Oprod (Particle b) (Dagger (Particle a))) = Scaled ParticleSign o
-  --where o = Oprod (Dagger (Particle a)) (Particle b)
---normalize (Oprod (Dagger (Hole a)) (Hole b)) = Scaled ParticleSign o
-  --where o = Oprod (Hole b) (Dagger (Hole a))
---normalize (Osum   a b) = Osum (normalize a) (normalize b)
+normalize (Osum  s) = foldl (+) FockZero $ map normalize s
+normalize (Oprod s) = Oprod (normSort s)
+ where
+  normSort :: [Operator] -> [Operator]
+  normSort (x : xs) = case x of
+    (Op       a) -> (normSort xs) ++ [x]
+    (Particle a) -> (normSort xs) ++ [x]
+    (Hole     a) -> (normSort xs) ++ [x]
+    _            -> x : (normSort xs)
+  normSort [] = []
 normalize (Scaled a b) = Scaled a (normalize b)
 normalize a            = a
 
 expand :: Operator -> Operator
 expand (Oprod c   ) = Osum $ map Oprod (expandList c)
 expand (Osum  a   ) = foldl (+) FockZero (map (expand . Oprod . (: [])) a)
---expand (Osum a) = Osum $ map (expandList . (:[])) a
 expand (Scaled s a) = Osum [Scaled s (expand a)]
 expand c            = Osum [c]
 
@@ -130,8 +129,8 @@ instance Tex Operator where
   tex (Dagger   (Particle x)) = "p^{" ++ x ++ "}"
   tex (Hole     x           ) = "h_{" ++ x ++ "}"
   tex (Dagger   (Hole x)    ) = "h^{" ++ x ++ "}"
-  tex FockOne                 = "1"
-  tex FockZero                = "0"
+  tex FockOne                 = "1_{F}"
+  tex FockZero                = "0_{F}"
   tex (Scaled s p)            = tex s ++ "*" ++ tex p
   tex (Oprod o   )            = mconcat $ map tex o
   tex (Osum  o   )            = intercalate " + " $ map tex o
@@ -142,31 +141,41 @@ instance Tex Scalar where
   tex (Conj x   )    = "(\\bar{" ++ show x ++ "})"
   tex ScalarOne      = "1"
   tex ScalarZero     = "0"
-  tex (Sprod s t   ) = "(" ++ tex s ++ " * " ++ tex t ++ ")"
-  tex (Ssum  s t   ) = "(" ++ tex s ++ " + " ++ tex t ++ ")"
+  tex (Sprod s     ) = "(" ++ (intercalate "*" $ map tex s) ++ ")"
+  tex (Ssum  s     ) = "(" ++ (intercalate " + " $ map tex s) ++ ")"
   tex (Tensor s a i) = s ++ "^{" ++ a ++ "}_{" ++ i ++ "}"
   tex ParticleSign   = "ParticleSign"
 
-contract :: Operator -> Operator -> Scalar
+contractRealVacuum :: Operator -> Operator -> Scalar
+-- op - hole
+contractRealVacuum (Op       x           ) (Dagger   (Op y)      ) = Delta x y
+contractRealVacuum (Dagger   (Op y)      ) (Op       x           ) = ScalarZero
+contractRealVacuum (Op       x           ) (Op       y           ) = ScalarZero
+-- hole - hole
+contractRealVacuum (Hole     x           ) (Dagger   (Hole y)    ) = Delta x y
+contractRealVacuum (Dagger   (Hole y)    ) (Hole     x           ) = ScalarZero
+contractRealVacuum (Hole     x           ) (Hole     y           ) = ScalarZero
+-- particle - particle
+contractRealVacuum (Particle x           ) (Dagger   (Particle y)) = Delta x y
+contractRealVacuum (Dagger   (Particle y)) (Particle x           ) = ScalarZero
+contractRealVacuum (Particle x           ) (Particle y           ) = ScalarZero
+-- particle - hole
+contractRealVacuum (Particle x           ) (Hole     y           ) = ScalarZero
+contractRealVacuum (Dagger   (Hole x)    ) (Particle y           ) = ScalarZero
+contractRealVacuum (Hole     x           ) (Dagger   (Particle y)) = ScalarZero
+-- The whole system should panic here
+contractRealVacuum _                       _                       = undefined
 
-contract (Dagger   (Hole x)  ) (Hole     y           ) = Delta x y
-contract (Hole     x         ) (Hole     y           ) = ScalarZero
-
-contract (Particle x         ) (Dagger   (Particle y)) = Delta x y
-contract (Particle x         ) (Particle y           ) = ScalarZero
-
-contract (Particle x         ) (Hole     y           ) = ScalarZero
-contract (Dagger   (Hole x)  ) (Particle y           ) = ScalarZero
-contract (Hole     x         ) (Dagger   (Particle y)) = ScalarZero
-
---contract (Oprod p q        ) (Oprod r s            ) = foldl
-  --Ssum
-  --ScalarZero
-  --[ Sprod (contract p q) (contract r s)
-  --, Sprod (contract p r) (contract q s)
-  --, Sprod (contract p s) (contract q r)
-  --]
---contract o (Oprod p s) = Ssum (contract o p) (contract o s)
-contract (Scaled ScalarZero o) p                       = ScalarZero
-contract (Scaled s          o) p                       = Sprod s (contract o p)
-contract o                     p                       = contract p o
+contractSDVacuum :: Operator -> Operator -> Scalar
+-- hole - hole
+contractSDVacuum (Dagger   (Hole x)) (Hole     y           ) = Delta x y
+contractSDVacuum (Hole     x       ) (Hole     y           ) = ScalarZero
+-- particle - particle
+contractSDVacuum (Particle x       ) (Dagger   (Particle y)) = Delta x y
+contractSDVacuum (Particle x       ) (Particle y           ) = ScalarZero
+-- particle - hole
+contractSDVacuum (Particle x       ) (Hole     y           ) = ScalarZero
+contractSDVacuum (Dagger   (Hole x)) (Particle y           ) = ScalarZero
+contractSDVacuum (Hole     x       ) (Dagger   (Particle y)) = ScalarZero
+-- The whole system should panic here
+contractSDVacuum _                   _                       = undefined

@@ -17,9 +17,13 @@ tauai a i = p' a * h i
 main :: IO ()
 main = hspec $ do
   let a = p "a"
+      a' = p' "a"
       b = p "b"
+      b' = p' "b"
       c = p "c"
+      c' = p' "c"
       d = p "d"
+      d' = p' "d"
       e = p "e"
       f = p "f"
       g = p "f"
@@ -91,6 +95,14 @@ main = hspec $ do
       expand ((a + b)*(c + d)*(i+j))
         `shouldBe`
         Osum [a*c*i,a*c*j,a*d*i,a*d*j, b*c*i,b*c*j,b*d*i,b*d*j]
+
+  describe "Normalize operators" $ do
+    it "Normalizes a*b+ and b+*a" $ do
+      normalize (a*b') `shouldBe` (b'*a)
+      normalize (b'*a) `shouldBe` (b'*a)
+    it "Normalizes two body stuff" $ do
+      normalize (a*b*c'*d') `shouldBe` (c'*d'*b*a)
+      normalize (a*c'*b*d') `shouldBe` (c'*d'*b*a)
 {-
 
   describe "Contraction" $ do
