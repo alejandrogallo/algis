@@ -41,8 +41,11 @@ class CStarALgebra a where
   (*) :: a -> a -> a
   (**) :: a -> Int -> a
   (+) :: a -> a -> a
+  (^+) :: a -> a
 
 instance CStarALgebra Operator where
+  (^+) = dag
+
   FockOne   * a         = a
   a         * FockOne   = a
   (Oprod a) * (Oprod b) = Oprod $ a ++ b
@@ -105,6 +108,45 @@ normalize (Oprod s) = Oprod (normSort s)
   normSort [] = []
 normalize (Scaled a b) = Scaled a (normalize b)
 normalize a            = a
+
+bubbleSortIteration :: (Ord a) => ([a], Int) -> ([a], Int)
+bubbleSortIteration ([x], n) = ([x], n)
+bubbleSortIteration ((x : y : xs), n)
+  | (x > y)
+  = let (ys, n') = (bubbleSortIteration (x : xs, Prelude.sum [n, 1]))
+    in  (y : ys, n')
+  | otherwise
+  = let (ys, n') = (bubbleSortIteration (y : xs, n)) in (x : ys, n')
+
+bubbleSortCount :: (Ord a) => ([a], Int, Int) -> ([a], Int, Int)
+bubbleSortCount (xs, n, i) = if (length xs == i)
+  then (xs, n, i)
+  else bubbleSortCount (ys, m, sum [i, 1])
+  where (ys, m) = bubbleSortIteration (xs, n)
+
+bubbleSortWithTranspositions :: (Ord a) => [a] -> ([a], Int)
+bubbleSortWithTranspositions xs = (ys, transpositinoNumber)
+  where (ys, transpositinoNumber, _) = bubbleSortCount (xs, 0, 0)
+
+permutationSign :: (Ord a) => [a] -> Int
+permutationSign xs = sign
+ where
+  (ys, transpositinoNumber, _) = bubbleSortCount (xs, 0, 0)
+  sign                         = (-1) ^ transpositinoNumber
+
+contractedCombinations :: [Operator] -> [[[(Operator, Int)]]]
+contractedCombinations s = seqs
+ where
+  seqs = map getPairs $ filter ((== 0) . (`mod` 2) . length) $ subsequences
+    (zip s [1 ..])
+  getPairs :: [a] -> [[a]]
+  getPairs = filter ((== 2) . length) . subsequences
+
+--wick :: Operator -> Operator
+--wick (Osum  s) = foldl (+) FockZero $ map wick s
+--wick (Oprod s) = foldl (+) FockZero $ map (normalize . Oprod) combs
+  --where combs = (contractedCombinations s)
+--wick a            = a
 
 expand :: Operator -> Operator
 expand (Oprod c   ) = Osum $ map Oprod (expandList c)
