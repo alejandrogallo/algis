@@ -119,13 +119,27 @@ main = hspec $ do
       normalize (a * b * c' * d') `shouldBe` (c' * d' * b * a)
       normalize (a * c' * b * d') `shouldBe` (c' * d' * b * a)
 
+  describe "test permutations" $ do
+    it "Computes all 2 permutation signs" $ do
+      permutationSign [1, 2] `shouldBe` 1
+      permutationSign [2, 1] `shouldBe` -1
+    it "Computes some 3 permutation signs" $ do
+      permutationSign [1, 2, 3] `shouldBe` 1
+      permutationSign [2, 1, 3] `shouldBe` -1
+      permutationSign [1, 3, 2] `shouldBe` -1
+      permutationSign [2, 3, 1] `shouldBe` 1
+    it "Computes some 4 permutation signs" $ do
+      permutationSign [1, 2, 3, 4] `shouldBe` 1
+      permutationSign [1, 3, 2, 4] `shouldBe` -1
+      permutationSign [1, 4, 3, 2] `shouldBe` -1
+      permutationSign [1, 7, 8, 2] `shouldBe` 1
+
   describe "Wick" $ do
-    it "wick" $ do
-      contractedCombinations [a] `shouldBe` [ [] ]
+
+    it "It creates correctly wick pairings" $ do
+      contractedCombinations [a] `shouldBe` [[]]
       contractedCombinations [a, i]
-        `shouldBe` [ []
-                   , [[(Particle "a", 1), (Hole "i", 2)]]
-                   ]
+        `shouldBe` [[], [[(Particle "a", 1), (Hole "i", 2)]]]
       contractedCombinations [a, b, i]
         `shouldBe` [ []
                    , [[(Particle "a", 1), (Particle "b", 2)]]
@@ -134,7 +148,13 @@ main = hspec $ do
                    ]
 
 
+    it "combines combinations with products correctly" $ do
+      let op = [a, i]
+          cs = contractedCombinations op
+      combinePairingsWithProduct cs op `shouldBe` [op, []]
+
 {-
+
 
   describe "Contraction" $ do
     it "Correctly contracts holes and particles" $ do

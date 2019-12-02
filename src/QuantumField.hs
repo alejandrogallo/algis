@@ -134,7 +134,11 @@ permutationSign xs = sign
   (ys, transpositinoNumber, _) = bubbleSortCount (xs, 0, 0)
   sign                         = (-1) ^ transpositinoNumber
 
-contractedCombinations :: [Operator] -> [[[(Operator, Int)]]]
+type WickPair = [(Operator, Int)]
+
+-- This function should return a list of a way of pairing
+-- operators in an expression, two by two
+contractedCombinations :: [Operator] -> [[WickPair]]
 contractedCombinations s = seqs
  where
   seqs = map getPairs $ filter ((== 0) . (`mod` 2) . length) $ subsequences
@@ -142,11 +146,24 @@ contractedCombinations s = seqs
   getPairs :: [a] -> [[a]]
   getPairs = filter ((== 2) . length) . subsequences
 
---wick :: Operator -> Operator
---wick (Osum  s) = foldl (+) FockZero $ map wick s
---wick (Oprod s) = foldl (+) FockZero $ map (normalize . Oprod) combs
-  --where combs = (contractedCombinations s)
---wick a            = a
+combinePairingsWithProduct
+  :: [[WickPair]] -> [Operator] -> [[Operator]]
+combinePairingsWithProduct cs ops = (map filterOutContraction cs) <*> [ops]
+ where
+  filterOutContraction :: [WickPair] -> [Operator] -> [Operator]
+  filterOutContraction c ops =
+    [ o | o <- ops, not (o `elem` (map fst $ mconcat c)) ]
+
+-- This should return a sum of wicked operators
+{-
+wick :: Operator -> Operator
+wick (Osum  s) = foldl (+) FockZero $ map wick s
+wick (Oprod s) = foldl (+) FockZero $ map (normalize . Oprod) wickedTerms
+  where wickedTerms = pairAll pairings s
+        pairings = contractedCombinations s
+        pairAll :: [[[(Operator, Int)]]] -> [Operator] -> [[Operator]]
+        pairAll combs ops = map
+-}
 
 expand :: Operator -> Operator
 expand (Oprod c   ) = Osum $ map Oprod (expandList c)
